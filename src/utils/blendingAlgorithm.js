@@ -6,9 +6,25 @@
  * - Rejection handling: Re-processes rejected lots with weighted average compensation
  */
 export function calculateBlend(lotsForSize, T, specs) {
+  console.log(`\n=== BLEND CALCULATION START ===`);
+  console.log(`Input lotsForSize.length: ${lotsForSize.length}`);
+  console.log(`Target tonnage T: ${T}`);
+  console.log(`Specs:`, specs);
+  
   if (lotsForSize.length === 0) {
+    console.log(`No lots for this size, returning null`);
     return null;
   }
+  
+  // Log input lots
+  console.log(`\nInput lots:`, lotsForSize.map(l => ({
+    sampleId: l.sampleId,
+    tonnage: l.tonnage,
+    Fe: l.Fe,
+    SiO2: l.SiO2,
+    Al2O3: l.Al2O3,
+    P: l.P
+  })));
   
   let remaining = T;
   const alloc = Array(lotsForSize.length).fill(0);
@@ -21,13 +37,31 @@ export function calculateBlend(lotsForSize, T, specs) {
   
   let fe_sum = 0, sio2_sum = 0, al_sum = 0, p_sum = 0, tonnage_sum = 0;
   const allocations = [];
+  
+  // Calculate total values for fallback (weighted average of all lots)
+  let total_fe_sum = 0, total_sio2_sum = 0, total_al_sum = 0, total_p_sum = 0, total_tonnage = 0;
+  for (let lot of lotsForSize) {
+    total_fe_sum += lot.representativeLotQty * lot.Fe;
+    total_sio2_sum += lot.representativeLotQty * lot.SiO2;
+    total_al_sum += lot.representativeLotQty * lot.Al2O3;
+    total_p_sum += lot.representativeLotQty * lot.P;
+    total_tonnage += lot.representativeLotQty;
+  }
+  
+  console.log(`\nFallback totals (all lots):`, {
+    total_tonnage,
+    total_fe_sum,
+    total_sio2_sum,
+    total_al_sum,
+    total_p_sum
+  });
 
   // First pass: greedy allocation with product-size specific specs
   for (let i of idxs) {
     if (remaining <= 0) break;
     
     const lot = lotsForSize[i];
-    const take = Math.min(lot.tonnage, remaining);
+    const take = Math.min(lot.representativeLotQty, remaining);
     
     const new_fe = fe_sum + take * lot.Fe;
     const new_sio2 = sio2_sum + take * lot.SiO2;
@@ -92,7 +126,7 @@ export function calculateBlend(lotsForSize, T, specs) {
       if (remaining <= 0) break;
       
       const { idx, lot } = rejected;
-      const take = Math.min(lot.tonnage, remaining);
+      const take = Math.min(lot.representativeLotQty, remaining);
       
       // Calculate impact on weighted averages
       const new_tonnage = tonnage_sum + take;
@@ -138,7 +172,7 @@ export function calculateBlend(lotsForSize, T, specs) {
       if (alloc[rejected.idx] > 0) continue; // Skip already allocated
       
       const { idx, lot } = rejected;
-      const take = Math.min(lot.tonnage - alloc[idx], remaining);
+      const take = Math.min(lot.representativeLotQty - alloc[idx], remaining);
       
       if (take > 0) {
         alloc[idx] = (alloc[idx] || 0) + take;
@@ -164,21 +198,54 @@ export function calculateBlend(lotsForSize, T, specs) {
   }
 
   const total_allocated = tonnage_sum;
-  const fe_pct = total_allocated > 0 ? fe_sum / total_allocated : 0;
-  const sio2_pct = total_allocated > 0 ? sio2_sum / total_allocated : 0;
-  const al_pct = total_allocated > 0 ? al_sum / total_allocated : 0;
-  const p_pct = total_allocated > 0 ? p_sum / total_allocated : 0;
+  
+  // Use allocated values if available, otherwise fallback to total weighted average
+  let fe_pct, sio2_pct, al_pct, p_pct;
+  let final_fe_sum, final_sio2_sum, final_al_sum, final_p_sum;
+  
+  console.log(`\nAllocation phase results:`, {
+    total_allocated,
+    fe_sum,
+    sio2_sum,
+    al_sum,
+    p_sum,
+    allocations_count: allocations.length
+  });
+  
+  if (total_allocated > 0) {
+    fe_pct = fe_sum / total_allocated;
+    sio2_pct = sio2_sum / total_allocated;
+    al_pct = al_sum / total_allocated;
+    p_pct = p_sum / total_allocated;
+    final_fe_sum = fe_sum;
+    final_sio2_sum = sio2_sum;
+    final_al_sum = al_sum;
+    final_p_sum = p_sum;
+    console.log(`✓ Using allocated values: Fe=${fe_pct.toFixed(3)}%, SiO2=${sio2_pct.toFixed(3)}%, Al2O3=${al_pct.toFixed(4)}%, P=${p_pct.toFixed(4)}%`);
+  } else {
+    // Fallback: Use weighted average of ALL lots when no allocations meet specs
+    fe_pct = total_tonnage > 0 ? total_fe_sum / total_tonnage : 0;
+    sio2_pct = total_tonnage > 0 ? total_sio2_sum / total_tonnage : 0;
+    al_pct = total_tonnage > 0 ? total_al_sum / total_tonnage : 0;
+    p_pct = total_tonnage > 0 ? total_p_sum / total_tonnage : 0;
+    final_fe_sum = total_fe_sum;
+    final_sio2_sum = total_sio2_sum;
+    final_al_sum = total_al_sum;
+    final_p_sum = total_p_sum;
+    console.log(`⚠ No allocations found for specs. Using fallback weighted average of all lots: Fe=${fe_pct.toFixed(3)}%, SiO2=${sio2_pct.toFixed(3)}%, Al2O3=${al_pct.toFixed(4)}%, P=${p_pct.toFixed(4)}%`);
+    console.log(`  Fallback calculation: fe_sum=${total_fe_sum} / total_tonnage=${total_tonnage} = ${fe_pct.toFixed(3)}%`);
+  }
   
   const blended = {
     Fe: +fe_pct.toFixed(3),
     SiO2: +sio2_pct.toFixed(3),
     Al2O3: +al_pct.toFixed(4),
     P: +p_pct.toFixed(4),
-    total_allocated: total_allocated,
-    fe_tonnage: +fe_sum.toFixed(2),
-    sio2_tonnage: +sio2_sum.toFixed(2),
-    al_tonnage: +al_sum.toFixed(3),
-    p_tonnage: +p_sum.toFixed(4),
+    total_allocated: total_allocated > 0 ? total_allocated : total_tonnage,
+    fe_tonnage: +final_fe_sum.toFixed(2),
+    sio2_tonnage: +final_sio2_sum.toFixed(2),
+    al_tonnage: +final_al_sum.toFixed(3),
+    p_tonnage: +final_p_sum.toFixed(4),
     specs: {
       fe_min: specs.fe_min,
       sio2_max: specs.sio2_max,
@@ -195,6 +262,21 @@ export function calculateBlend(lotsForSize, T, specs) {
     recoveredCount: allocations.filter(a => a.status && a.status !== 'ACCEPTED').length,
     allocations: allocations
   };
+
+  console.log(`\n=== FINAL BLENDED RESULT ===`);
+  console.log(`Blended values:`, {
+    Fe: blended.Fe,
+    SiO2: blended.SiO2,
+    Al2O3: blended.Al2O3,
+    P: blended.P,
+    total_allocated: blended.total_allocated,
+    fe_tonnage: blended.fe_tonnage,
+    sio2_tonnage: blended.sio2_tonnage,
+    al_tonnage: blended.al_tonnage,
+    p_tonnage: blended.p_tonnage
+  });
+  console.log(`Allocations count: ${allocations.length}`);
+  console.log(`=== END BLEND CALCULATION ===\n`);
 
   return { blended, allocations };
 }

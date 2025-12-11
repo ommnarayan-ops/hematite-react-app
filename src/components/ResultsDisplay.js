@@ -21,8 +21,13 @@ export function ResultsBySize({ size, sizeLabel, result, bgColor, headerBgColor 
   // Calculate percentages using SUMPRODUCT formula separately for each product size
   // Formula: SUMPRODUCT(Representative Lot Qty × Parameter %) / SUM(Representative Lot Qty)
   const calculateMetrics = () => {
+    console.log(`\n=== CALCULATE METRICS (${sizeLabel}) ===`);
+    console.log(`Input - blended:`, blended);
+    console.log(`Input - allocations.length:`, allocations?.length || 0);
+    
     // Try to calculate from allocations array first
     if (allocations && allocations.length > 0) {
+      console.log(`✓ Using allocations array`);
       // Sum of tonnage allocated
       const totalTonnage = allocations.reduce((sum, alloc) => sum + alloc.allocated, 0);
       
@@ -40,7 +45,7 @@ export function ResultsBySize({ size, sizeLabel, result, bgColor, headerBgColor 
         const al_pct = al_sum / totalTonnage;
         const p_pct = p_sum / totalTonnage;
         
-        return {
+        const result = {
           fe_pct,
           sio2_pct,
           al_pct,
@@ -51,11 +56,13 @@ export function ResultsBySize({ size, sizeLabel, result, bgColor, headerBgColor 
           al_sum,
           p_sum
         };
+        console.log(`Calculated metrics from allocations:`, result);
+        return result;
       }
     }
     
     // Fallback: use blended values from algorithm when allocations array is empty or totalTonnage is 0
-    return {
+    const fallbackMetrics = {
       fe_pct: blended?.Fe || 0,
       sio2_pct: blended?.SiO2 || 0,
       al_pct: blended?.Al2O3 || 0,
@@ -66,6 +73,9 @@ export function ResultsBySize({ size, sizeLabel, result, bgColor, headerBgColor 
       al_sum: blended?.al_tonnage || 0,
       p_sum: blended?.p_tonnage || 0
     };
+    console.log(`⚠ Using fallback blended values:`, fallbackMetrics);
+    console.log(`=== END CALCULATE METRICS (${sizeLabel}) ===\n`);
+    return fallbackMetrics;
   };
 
   const metrics = calculateMetrics();
@@ -73,6 +83,13 @@ export function ResultsBySize({ size, sizeLabel, result, bgColor, headerBgColor 
   const sio2_pct = metrics.sio2_pct;
   const al_pct = metrics.al_pct;
   const p_pct = metrics.p_pct;
+  
+  console.log(`\n=== TABLE RENDERING (${sizeLabel}) ===`);
+  console.log(`metrics:`, metrics);
+  console.log(`blended.fe_tonnage:`, blended.fe_tonnage, `type: ${typeof blended.fe_tonnage}`);
+  console.log(`blended.sio2_tonnage:`, blended.sio2_tonnage, `type: ${typeof blended.sio2_tonnage}`);
+  console.log(`fe_pct:`, fe_pct, `formatted: ${fe_pct.toFixed(3)}`);
+  console.log(`sio2_pct:`, sio2_pct, `formatted: ${sio2_pct.toFixed(3)}`);
 
   return (
     <div style={{ backgroundColor: bgColor, padding: '15px', marginBottom: '20px', borderRadius: '5px' }}>
@@ -97,10 +114,10 @@ export function ResultsBySize({ size, sizeLabel, result, bgColor, headerBgColor 
               <td style={{ cursor: 'help' }}>
                 {fe_pct.toFixed(3)}
               </td>
-              <td>{blended.fe_tonnage}</td>
-              <td>≥ {blended.specs.fe_min}%</td>
-              <td style={{ color: fe_pct >= blended.specs.fe_min ? 'green' : 'red', fontWeight: 'bold' }}>
-                {fe_pct >= blended.specs.fe_min ? '✓ PASS' : '✗ FAIL'}
+              <td>{metrics.fe_sum || blended?.fe_tonnage || 0}</td>
+              <td>≥ {blended?.specs?.fe_min || 0}%</td>
+              <td style={{ color: fe_pct >= (blended?.specs?.fe_min || 0) ? 'green' : 'red', fontWeight: 'bold' }}>
+                {fe_pct >= (blended?.specs?.fe_min || 0) ? '✓ PASS' : '✗ FAIL'}
               </td>
             </tr>
             <tr>
@@ -108,10 +125,10 @@ export function ResultsBySize({ size, sizeLabel, result, bgColor, headerBgColor 
               <td style={{ cursor: 'help' }}>
                 {sio2_pct.toFixed(3)}
               </td>
-              <td>{blended.sio2_tonnage}</td>
-              <td>≤ {blended.specs.sio2_max}%</td>
-              <td style={{ color: sio2_pct <= blended.specs.sio2_max ? 'green' : 'red', fontWeight: 'bold' }}>
-                {sio2_pct <= blended.specs.sio2_max ? '✓ PASS' : '✗ FAIL'}
+              <td>{metrics.sio2_sum || blended?.sio2_tonnage || 0}</td>
+              <td>≤ {blended?.specs?.sio2_max || 0}%</td>
+              <td style={{ color: sio2_pct <= (blended?.specs?.sio2_max || 0) ? 'green' : 'red', fontWeight: 'bold' }}>
+                {sio2_pct <= (blended?.specs?.sio2_max || 0) ? '✓ PASS' : '✗ FAIL'}
               </td>
             </tr>
             <tr>
@@ -119,10 +136,10 @@ export function ResultsBySize({ size, sizeLabel, result, bgColor, headerBgColor 
               <td style={{ cursor: 'help' }}>
                 {al_pct.toFixed(4)}
               </td>
-              <td>{blended.al_tonnage}</td>
-              <td>≤ {blended.specs.al_max}%</td>
-              <td style={{ color: al_pct <= blended.specs.al_max ? 'green' : 'red', fontWeight: 'bold' }}>
-                {al_pct <= blended.specs.al_max ? '✓ PASS' : '✗ FAIL'}
+              <td>{metrics.al_sum || blended?.al_tonnage || 0}</td>
+              <td>≤ {blended?.specs?.al_max || 0}%</td>
+              <td style={{ color: al_pct <= (blended?.specs?.al_max || 0) ? 'green' : 'red', fontWeight: 'bold' }}>
+                {al_pct <= (blended?.specs?.al_max || 0) ? '✓ PASS' : '✗ FAIL'}
               </td>
             </tr>
             <tr>
@@ -130,10 +147,10 @@ export function ResultsBySize({ size, sizeLabel, result, bgColor, headerBgColor 
               <td style={{ cursor: 'help' }}>
                 {p_pct.toFixed(4)}
               </td>
-              <td>{blended.p_tonnage}</td>
-              <td>≤ {blended.specs.p_max}%</td>
-              <td style={{ color: p_pct <= blended.specs.p_max ? 'green' : 'red', fontWeight: 'bold' }}>
-                {p_pct <= blended.specs.p_max ? '✓ PASS' : '✗ FAIL'}
+              <td>{metrics.p_sum || blended?.p_tonnage || 0}</td>
+              <td>≤ {blended?.specs?.p_max || 0}%</td>
+              <td style={{ color: p_pct <= (blended?.specs?.p_max || 0) ? 'green' : 'red', fontWeight: 'bold' }}>
+                {p_pct <= (blended?.specs?.p_max || 0) ? '✓ PASS' : '✗ FAIL'}
               </td>
             </tr>
           </tbody>
