@@ -7,6 +7,8 @@ import * as XLSX from 'xlsx';
  * - Header: Row 4 (0-indexed, Excel row 5)
  * - Product Size: Column F (index 5)
  * - Tonnage: Column G (index 6) - "Representative Lot Qty"
+ * - Oversize (10-40mm): Column H (index 7)
+ * - Undersize (10-40mm): Column I (index 8)
  * - Fe: Column J (index 9)
  * - SiO2: Column K (index 10)
  * - Al2O3: Column L (index 11)
@@ -37,6 +39,8 @@ export function parseExcelFile(file) {
         // Column indices (0-based):
         const productSizeIdx = 5;  // Column F
         const tonnageIdx = 6;      // Column G (Representative Lot Qty)
+        const feSpecIdx = 7;       // Column H (Oversize)
+        const sio2SpecIdx = 8;     // Column I (Undersize)
         const feIdx = 9;           // Column J (Fe)
         const siIdx = 10;          // Column K (SiO2)
         const alIdx = 11;          // Column L (Al2O3)
@@ -45,6 +49,8 @@ export function parseExcelFile(file) {
         console.log('Using column mapping for standard Excel format:');
         console.log('  Product Size (F):', productSizeIdx);
         console.log('  Tonnage/Lot Qty (G):', tonnageIdx);
+        console.log('  Oversize (H):', feSpecIdx);
+        console.log('  Undersize (I):', sio2SpecIdx);
         console.log('  Fe (J):', feIdx);
         console.log('  SiO2 (K):', siIdx);
         console.log('  Al2O3 (L):', alIdx);
@@ -70,6 +76,8 @@ export function parseExcelFile(file) {
             const sioVal = row[siIdx];
             const productSizeVal = row[productSizeIdx];
             const tonnageVal = row[tonnageIdx];
+            const feSpecVal = row[feSpecIdx];
+            const sio2SpecVal = row[sio2SpecIdx];
             
             if (feVal === null || feVal === undefined || sioVal === null || sioVal === undefined) {
               continue;
@@ -78,6 +86,8 @@ export function parseExcelFile(file) {
             const fe = parseFloat(feVal);
             const sio2 = parseFloat(sioVal);
             const tonnage = parseFloat(tonnageVal) || 1000;
+            const feSpec = feSpecVal ? parseFloat(feSpecVal) : null;
+            const sio2Spec = sio2SpecVal ? parseFloat(sio2SpecVal) : null;
             
             if (isNaN(fe) || isNaN(sio2)) {
               continue;
@@ -97,18 +107,20 @@ export function parseExcelFile(file) {
               }
             }
             
-            console.log(`Row ${i+1}: Fe=${fe}%, SiO2=${sio2}%, Tonnage=${tonnage}t, Size=${productSize}`);
+            console.log(`Row ${i+1}: Fe=${fe}%, SiO2=${sio2}%, Representative Lot Qty=${tonnage}t, Size=${productSize}, Oversize=${feSpec}, Undersize=${sio2Spec}`);
             
             // Validate ranges (Fe 40-80%, SiO2 > 0)
             if (fe > 40 && fe < 80 && sio2 > 0) {
               data.push({
-                lotId: `Sample_${i - dataStartIdx + 1}`,
-                tonnage: tonnage,
+                sampleId: `Sample_${i - dataStartIdx + 1}`,
+                representativeLotQty: tonnage,
                 Fe: parseFloat(fe.toFixed(2)),
                 SiO2: parseFloat(sio2.toFixed(2)),
                 Al2O3: parseFloat(al2o3.toFixed(3)),
                 P: parseFloat(p.toFixed(4)),
-                productSize: productSize
+                productSize: productSize,
+                feSpecMin: feSpec,  // Product size specific Fe minimum
+                sio2SpecMax: sio2Spec  // Product size specific SiO2 maximum
               });
             }
           } catch (e) {
@@ -165,8 +177,8 @@ export function parseCSVFile(file) {
             }
             
             return {
-              lotId: obj['lot id'] || obj.lotid || obj['lot'] || `CSV_Lot_${idx}`,
-              tonnage: +obj.tonnage || 1000,
+              sampleId: obj['sample id'] || obj.sampleid || obj['lot id'] || obj.lotid || obj['lot'] || `CSV_Sample_${idx}`,
+              representativeLotQty: +obj['representative lot qty'] || +obj.tonnage || 1000,
               Fe: +obj['fe%'] || +obj.fe || 0,
               SiO2: +obj['sio2%'] || +obj.sio2 || 0,
               Al2O3: +obj['al2o3%'] || +obj.al2o3 || 0,

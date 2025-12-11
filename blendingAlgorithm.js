@@ -41,8 +41,8 @@ export function calculateBlend(lotsForSize, T, specs) {
     const new_p_pct = new_p / new_tonnage;
     
     // Use product-size specific specs if available, otherwise fall back to global specs
-    const feMin = lot.feSpecMin !== null && lot.feSpecMin !== undefined ? lot.feSpecMin : specs.fe_min;
-    const sio2Max = lot.sio2SpecMax !== null && lot.sio2SpecMax !== undefined ? lot.sio2SpecMax : specs.sio2_max;
+    const feMin = lot.Oversize !== null && lot.feSpecMin !== undefined ? lot.feSpecMin : specs.fe_min;
+    const sio2Max = lot.Undersize !== null && lot.sio2SpecMax !== undefined ? lot.sio2SpecMax : specs.sio2_max;
     const al2o3Max = specs.al_max;
     const pMax = specs.p_max;
     
