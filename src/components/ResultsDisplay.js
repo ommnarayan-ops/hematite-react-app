@@ -21,13 +21,8 @@ export function ResultsBySize({ size, sizeLabel, result, bgColor, headerBgColor 
   // Calculate percentages using SUMPRODUCT formula separately for each product size
   // Formula: SUMPRODUCT(Representative Lot Qty × Parameter %) / SUM(Representative Lot Qty)
   const calculateMetrics = () => {
-    console.log(`\n=== CALCULATE METRICS (${sizeLabel}) ===`);
-    console.log(`Input - blended:`, blended);
-    console.log(`Input - allocations.length:`, allocations?.length || 0);
-    
     // Try to calculate from allocations array first
     if (allocations && allocations.length > 0) {
-      console.log(`✓ Using allocations array`);
       // Sum of tonnage allocated
       const totalTonnage = allocations.reduce((sum, alloc) => sum + alloc.allocated, 0);
       
@@ -56,7 +51,6 @@ export function ResultsBySize({ size, sizeLabel, result, bgColor, headerBgColor 
           al_sum,
           p_sum
         };
-        console.log(`Calculated metrics from allocations:`, result);
         return result;
       }
     }
@@ -73,8 +67,6 @@ export function ResultsBySize({ size, sizeLabel, result, bgColor, headerBgColor 
       al_sum: blended?.al_tonnage || 0,
       p_sum: blended?.p_tonnage || 0
     };
-    console.log(`⚠ Using fallback blended values:`, fallbackMetrics);
-    console.log(`=== END CALCULATE METRICS (${sizeLabel}) ===\n`);
     return fallbackMetrics;
   };
 
@@ -83,13 +75,6 @@ export function ResultsBySize({ size, sizeLabel, result, bgColor, headerBgColor 
   const sio2_pct = metrics.sio2_pct;
   const al_pct = metrics.al_pct;
   const p_pct = metrics.p_pct;
-  
-  console.log(`\n=== TABLE RENDERING (${sizeLabel}) ===`);
-  console.log(`metrics:`, metrics);
-  console.log(`blended.fe_tonnage:`, blended.fe_tonnage, `type: ${typeof blended.fe_tonnage}`);
-  console.log(`blended.sio2_tonnage:`, blended.sio2_tonnage, `type: ${typeof blended.sio2_tonnage}`);
-  console.log(`fe_pct:`, fe_pct, `formatted: ${fe_pct.toFixed(3)}`);
-  console.log(`sio2_pct:`, sio2_pct, `formatted: ${sio2_pct.toFixed(3)}`);
 
   return (
     <div style={{ backgroundColor: bgColor, padding: '15px', marginBottom: '20px', borderRadius: '5px' }}>
