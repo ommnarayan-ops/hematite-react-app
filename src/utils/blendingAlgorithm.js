@@ -175,6 +175,10 @@ export function calculateBlend(lotsForSize, T, specs) {
 
   const total_allocated = tonnage_sum;
   
+  // Use allocated values if available, otherwise fallback to total weighted average
+  let fe_pct, sio2_pct, al_pct, p_pct;
+  let final_fe_sum, final_sio2_sum, final_al_sum, final_p_sum;
+  
   if (total_allocated > 0) {
     fe_pct = fe_sum / total_allocated;
     sio2_pct = sio2_sum / total_allocated;
@@ -184,7 +188,6 @@ export function calculateBlend(lotsForSize, T, specs) {
     final_sio2_sum = sio2_sum;
     final_al_sum = al_sum;
     final_p_sum = p_sum;
-    console.log(`✓ Using allocated values: Fe=${fe_pct.toFixed(3)}%, SiO2=${sio2_pct.toFixed(3)}%, Al2O3=${al_pct.toFixed(4)}%, P=${p_pct.toFixed(4)}%`);
   } else {
     // Fallback: Use weighted average of ALL lots when no allocations meet specs
     fe_pct = total_tonnage > 0 ? total_fe_sum / total_tonnage : 0;
