@@ -80,6 +80,125 @@ export function ResultsBySize({ size, sizeLabel, result, bgColor, headerBgColor 
     <div style={{ backgroundColor: bgColor, padding: '15px', marginBottom: '20px', borderRadius: '5px' }}>
       <h4>{sizeLabel}</h4>
       
+      {/* SIDECAST ALARMS */}
+      {result.adjustments && result.adjustments.alarms && result.adjustments.alarms.length > 0 && (
+        <div style={{ 
+          backgroundColor: '#ffebee', 
+          padding: '12px', 
+          marginBottom: '15px', 
+          borderRadius: '5px',
+          border: '2px solid #d32f2f',
+          color: '#b71c1c'
+        }}>
+          {result.adjustments.alarms.map((alarm, idx) => (
+            <div key={idx}>
+              <h5 style={{ margin: '0 0 8px 0', color: '#d32f2f' }}>🚨 {alarm.message}</h5>
+              {alarm.forcedSamples && alarm.forcedSamples.length > 0 && (
+                <div style={{ marginLeft: '10px', fontSize: '0.9em' }}>
+                  <p><strong>Total FORCED Tonnage:</strong> {alarm.totalForcedQty}t</p>
+                  <details>
+                    <summary>View {alarm.forcedSamples.length} FORCED Sample(s)</summary>
+                    <ul style={{ marginTop: '5px' }}>
+                      {alarm.forcedSamples.map((sample, sidx) => (
+                        <li key={sidx}>
+                          {sample.sampleId}: {sample.allocatedQty}t - {sample.status}
+                        </li>
+                      ))}
+                    </ul>
+                  </details>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+      
+      {/* ADJUSTMENTS NEEDED */}
+      {result.adjustments && result.adjustments.requiredAdjustments && (
+        <div style={{ 
+          backgroundColor: '#fffde7', 
+          padding: '12px', 
+          marginBottom: '15px', 
+          borderRadius: '5px',
+          border: '1px solid #f57f17'
+        }}>
+          <h5 style={{ margin: '0 0 10px 0', color: '#f57f17' }}>⚙️ Adjustments Required to Meet Specifications</h5>
+          
+          <table border='1' cellPadding='8' style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9em' }}>
+            <thead>
+              <tr style={{ backgroundColor: '#fff9c4' }}>
+                <th>Parameter</th>
+                <th>Current</th>
+                <th>Target</th>
+                <th>Status</th>
+                <th>Adjustment Needed (t)</th>
+                <th>Method</th>
+              </tr>
+            </thead>
+            <tbody>
+              {/* Fe Adjustments */}
+              <tr>
+                <td><strong>Fe</strong></td>
+                <td>{result.adjustments.requiredAdjustments.fe.current}%</td>
+                <td>≥ {result.adjustments.requiredAdjustments.fe.target}%</td>
+                <td style={{ color: result.adjustments.requiredAdjustments.fe.status ? 'green' : 'red' }}>
+                  {result.adjustments.requiredAdjustments.fe.status || (result.adjustments.requiredAdjustments.fe.deficit ? '❌ LOW' : 'OK')}
+                </td>
+                <td style={{ fontWeight: 'bold' }}>{result.adjustments.requiredAdjustments.fe.needed || '-'}</td>
+                <td style={{ fontSize: '0.85em' }}>{typeof result.adjustments.requiredAdjustments.fe.method === 'string' ? result.adjustments.requiredAdjustments.fe.method : '-'}</td>
+              </tr>
+              
+              {/* SiO2 Adjustments */}
+              <tr>
+                <td><strong>SiO2</strong></td>
+                <td>{result.adjustments.requiredAdjustments.sio2.current}%</td>
+                <td>≤ {result.adjustments.requiredAdjustments.sio2.target}%</td>
+                <td style={{ color: result.adjustments.requiredAdjustments.sio2.status ? 'green' : 'red' }}>
+                  {result.adjustments.requiredAdjustments.sio2.status || (result.adjustments.requiredAdjustments.sio2.excess ? '❌ HIGH' : 'OK')}
+                </td>
+                <td style={{ fontWeight: 'bold' }}>{result.adjustments.requiredAdjustments.sio2.needed || '-'}</td>
+                <td style={{ fontSize: '0.85em' }}>{typeof result.adjustments.requiredAdjustments.sio2.method === 'string' ? result.adjustments.requiredAdjustments.sio2.method : '-'}</td>
+              </tr>
+              
+              {/* Al2O3 Adjustments */}
+              <tr>
+                <td><strong>Al2O3</strong></td>
+                <td>{result.adjustments.requiredAdjustments.al2o3.current}%</td>
+                <td>≤ {result.adjustments.requiredAdjustments.al2o3.target}%</td>
+                <td style={{ color: result.adjustments.requiredAdjustments.al2o3.status ? 'green' : 'red' }}>
+                  {result.adjustments.requiredAdjustments.al2o3.status || (result.adjustments.requiredAdjustments.al2o3.excess ? '❌ HIGH' : 'OK')}
+                </td>
+                <td style={{ fontWeight: 'bold' }}>{result.adjustments.requiredAdjustments.al2o3.needed || '-'}</td>
+                <td style={{ fontSize: '0.85em' }}>{typeof result.adjustments.requiredAdjustments.al2o3.method === 'string' ? result.adjustments.requiredAdjustments.al2o3.method : '-'}</td>
+              </tr>
+              
+              {/* P Adjustments */}
+              <tr>
+                <td><strong>P</strong></td>
+                <td>{result.adjustments.requiredAdjustments.p.current}%</td>
+                <td>≤ {result.adjustments.requiredAdjustments.p.target}%</td>
+                <td style={{ color: result.adjustments.requiredAdjustments.p.status ? 'green' : 'red' }}>
+                  {result.adjustments.requiredAdjustments.p.status || (result.adjustments.requiredAdjustments.p.excess ? '❌ HIGH' : 'OK')}
+                </td>
+                <td style={{ fontWeight: 'bold' }}>{result.adjustments.requiredAdjustments.p.needed || '-'}</td>
+                <td style={{ fontSize: '0.85em' }}>{typeof result.adjustments.requiredAdjustments.p.method === 'string' ? result.adjustments.requiredAdjustments.p.method : '-'}</td>
+              </tr>
+            </tbody>
+          </table>
+          
+          {result.adjustments.recommendations && result.adjustments.recommendations.length > 0 && (
+            <div style={{ marginTop: '10px', backgroundColor: '#fff', padding: '8px', borderRadius: '3px' }}>
+              <strong>📋 Recommendations:</strong>
+              <ul style={{ margin: '5px 0 0 20px', paddingLeft: 0 }}>
+                {result.adjustments.recommendations.map((rec, idx) => (
+                  <li key={idx} style={{ marginBottom: '4px', fontSize: '0.9em' }}>{rec}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
+      
       {/* Blended Composition Table */}
       <div style={{ backgroundColor: '#f9f9f9', padding: '15px', marginBottom: '15px', borderRadius: '5px' }}>
         <h5>Blended Composition</h5>

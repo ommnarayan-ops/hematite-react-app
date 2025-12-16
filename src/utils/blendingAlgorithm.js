@@ -231,6 +231,151 @@ export function calculateBlend(lotsForSize, T, specs) {
 }
 
 /**
+ * Calculate reverse blend adjustments needed to meet specifications
+ * Determines how much extra quantity or quality adjustment is required
+ */
+function calculateReverseAdjustments(allocations, currentMetrics, specs) {
+  if (!allocations || allocations.length === 0) {
+    return null;
+  }
+
+  const adjustments = {
+    alarms: [],
+    requiredAdjustments: {
+      fe: { needed: 0, method: 'quantity' }, // Can adjust via quantity or quality
+      sio2: { needed: 0, method: 'quantity' },
+      al2o3: { needed: 0, method: 'quantity' },
+      p: { needed: 0, method: 'quantity' }
+    },
+    recommendations: []
+  };
+
+  // Find FORCED allocations (these exceed specs)
+  const forcedAllocations = allocations.filter(a => a.status && a.status.includes('FORCED'));
+
+  if (forcedAllocations.length > 0) {
+    adjustments.alarms.push({
+      type: 'SIDECAST_ALERT',
+      severity: 'HIGH',
+      message: `⚠️ SIDECAST REQUIRED: ${forcedAllocations.length} sample(s) with FORCED allocation (specs exceeded)`,
+      forcedSamples: forcedAllocations.map(a => ({
+        sampleId: a.sampleId,
+        allocatedQty: a.allocated,
+        status: a.status
+      })),
+      totalForcedQty: forcedAllocations.reduce((sum, a) => sum + a.allocated, 0)
+    });
+  }
+
+  // Calculate adjustments needed for each parameter
+  const totalQty = allocations.reduce((sum, a) => sum + a.allocated, 0);
+  const currentFe = currentMetrics.fe_pct;
+  const currentSiO2 = currentMetrics.sio2_pct;
+  const currentAl2O3 = currentMetrics.al_pct;
+  const currentP = currentMetrics.p_pct;
+
+  // Fe calculation: if current < min, how much high-Fe material needed?
+  if (currentFe < specs.fe_min) {
+    const fe_deficit = specs.fe_min - currentFe;
+    // Assuming we can add material at ~65% Fe (high-Fe ore)
+    const highFe = 65;
+    const requiredHighFeMass = (fe_deficit * totalQty) / (highFe - currentFe);
+    adjustments.requiredAdjustments.fe = {
+      needed: +requiredHighFeMass.toFixed(2),
+      deficit: +fe_deficit.toFixed(3),
+      current: +currentFe.toFixed(3),
+      target: specs.fe_min,
+      method: 'Add high-Fe material (65% Fe) or increase low-Fe material removal'
+    };
+    adjustments.recommendations.push(
+      `Fe is LOW (${currentFe.toFixed(3)}% vs target ${specs.fe_min}%): Need ~${requiredHighFeMass.toFixed(2)}t additional high-Fe material`
+    );
+  } else if (currentFe > specs.fe_min) {
+    adjustments.requiredAdjustments.fe = {
+      needed: 0,
+      current: +currentFe.toFixed(3),
+      target: specs.fe_min,
+      status: 'MET ✓'
+    };
+  }
+
+  // SiO2 calculation: if current > max, how much low-SiO2 material needed?
+  if (currentSiO2 > specs.sio2_max) {
+    const sio2_excess = currentSiO2 - specs.sio2_max;
+    // Assuming we can add material at ~2% SiO2 (very clean ore)
+    const lowSiO2 = 2;
+    const requiredLowSiO2Mass = (sio2_excess * totalQty) / (currentSiO2 - lowSiO2);
+    adjustments.requiredAdjustments.sio2 = {
+      needed: +requiredLowSiO2Mass.toFixed(2),
+      excess: +sio2_excess.toFixed(3),
+      current: +currentSiO2.toFixed(3),
+      target: specs.sio2_max,
+      method: 'Add low-SiO2 material (2% SiO2) or remove high-SiO2 material'
+    };
+    adjustments.recommendations.push(
+      `SiO2 is HIGH (${currentSiO2.toFixed(3)}% vs max ${specs.sio2_max}%): Need ~${requiredLowSiO2Mass.toFixed(2)}t additional low-SiO2 material`
+    );
+  } else if (currentSiO2 <= specs.sio2_max) {
+    adjustments.requiredAdjustments.sio2 = {
+      needed: 0,
+      current: +currentSiO2.toFixed(3),
+      target: specs.sio2_max,
+      status: 'MET ✓'
+    };
+  }
+
+  // Al2O3 calculation
+  if (currentAl2O3 > specs.al_max) {
+    const al_excess = currentAl2O3 - specs.al_max;
+    const lowAl = 0.8;
+    const requiredLowAlMass = (al_excess * totalQty) / (currentAl2O3 - lowAl);
+    adjustments.requiredAdjustments.al2o3 = {
+      needed: +requiredLowAlMass.toFixed(2),
+      excess: +al_excess.toFixed(4),
+      current: +currentAl2O3.toFixed(4),
+      target: specs.al_max,
+      method: 'Add low-Al2O3 material or remove high-Al material'
+    };
+    adjustments.recommendations.push(
+      `Al2O3 is HIGH (${currentAl2O3.toFixed(4)}% vs max ${specs.al_max}%): Need ~${requiredLowAlMass.toFixed(2)}t adjustment`
+    );
+  } else if (currentAl2O3 <= specs.al_max) {
+    adjustments.requiredAdjustments.al2o3 = {
+      needed: 0,
+      current: +currentAl2O3.toFixed(4),
+      target: specs.al_max,
+      status: 'MET ✓'
+    };
+  }
+
+  // P calculation
+  if (currentP > specs.p_max) {
+    const p_excess = currentP - specs.p_max;
+    const lowP = 0.01;
+    const requiredLowPMass = (p_excess * totalQty) / (currentP - lowP);
+    adjustments.requiredAdjustments.p = {
+      needed: +requiredLowPMass.toFixed(2),
+      excess: +p_excess.toFixed(4),
+      current: +currentP.toFixed(4),
+      target: specs.p_max,
+      method: 'Add low-P material or remove high-P material'
+    };
+    adjustments.recommendations.push(
+      `P is HIGH (${currentP.toFixed(4)}% vs max ${specs.p_max}%): Need ~${requiredLowPMass.toFixed(2)}t adjustment`
+    );
+  } else if (currentP <= specs.p_max) {
+    adjustments.requiredAdjustments.p = {
+      needed: 0,
+      current: +currentP.toFixed(4),
+      target: specs.p_max,
+      status: 'MET ✓'
+    };
+  }
+
+  return adjustments;
+}
+
+/**
  * Main blending solver - processes each product size separately
  * Uses product-size specific quality specs from UI or lot data
  */
@@ -280,7 +425,23 @@ export function buildAndSolve(lots, T, feMin, sio2Spec, alSpec, pSpec, sizeSpecs
     
     const result = calculateBlend(lotsForSize, T, productSizeSpecs);
     if (result) {
-      resultsBySize[size] = result;
+      // Calculate metrics for reverse adjustment calculation
+      const { blended, allocations } = result;
+      const currentMetrics = {
+        fe_pct: blended.Fe,
+        sio2_pct: blended.SiO2,
+        al_pct: blended.Al2O3,
+        p_pct: blended.P,
+        totalTonnage: blended.total_allocated
+      };
+      
+      // Calculate reverse adjustments needed to meet specs
+      const adjustments = calculateReverseAdjustments(allocations, currentMetrics, productSizeSpecs);
+      
+      resultsBySize[size] = {
+        ...result,
+        adjustments: adjustments
+      };
     }
   }
 
